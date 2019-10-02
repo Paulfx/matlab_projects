@@ -3,43 +3,7 @@ clear;
 clc;
 close all;
 
-%image cos horizontal
-M = N = 2048;
-T = 5;
-cosImg = ones(M,1) * cos(2 * pi * (1:N) / T);
-%imshow(cosImg);
-
-
-%image cos décalé d'un angle
-d=50;
-teta=pi/4;
-dx = floor(d * cos(teta));
-dy = floor(d * sin(teta));
-im = zeros(M,N);
-xcentre = floor((M/2) + 1);
-ycentre = floor((N/2) + 1);
-im(xcentre, ycentre) = 255;
-im(xcentre+dx, ycentre+dy) = 255;
-im(xcentre-dx, ycentre-dy) = 255;
-%imshow(im);
-
-imInv = ifft2(im);
-%imshow(abs(imInv),[]);
-
-function echIm = echantillonne(im, decimation)
- [M N Ch] = size(im);
- echIm = im(1:decimation:M, 1:decimation:N, :);
-endfunction
-
-imInv = abs(imInv);
-imInv2 = echantillonne(imInv, 2);
-imInv4 = echantillonne(imInv, 4);
-imInv8 = echantillonne(imInv, 8);
-
-Z = imzoneplate(1024);
-imshow(echantillonne(Z, 8));
-
-
+%Fonctions:
 
 function I = imzoneplate(N)
 %imzoneplate Zone plate test pattern
@@ -118,3 +82,70 @@ yc = center(2);
 exponent = ((x-xc).^2 + (y-yc).^2)./(2*sigma);
 val       = (exp(-exponent));
 endfunction
+
+function img = getImgCircle(n,m,radius)
+    [col, row] = meshgrid(1:n, 1:m);
+    centerX = n / 2 + 1;
+    centerY = m / 2 + 1;
+    circlePixels = (row - centerY).^2 + (col - centerX).^2 <= radius.^2;
+    img = circlePixels * 255; %%Affiche en blanc
+endfunction
+
+function echIm = echantillonne(im, decimation)
+ [M N Ch] = size(im);
+ echIm = im(1:decimation:M, 1:decimation:N, :);
+endfunction
+
+function showEchantillonne(im)
+
+	figure();
+	subplot(2,2,1);
+	imshow(im, []);
+	title("Image originale");
+
+	subplot(2,2,2);
+	imshow(echantillonne(im,2), []);
+	title("Image echantillonée 1 pixel sur 2");
+
+	subplot(2,2,3);
+	imshow(echantillonne(im,4), []);
+	title("Image echantillonée 1 pixel sur 4");
+
+	subplot(2,2,4);
+	imshow(echantillonne(im,8), []);
+	title("Image echantillonée 1 pixel sur 8");
+
+endfunction
+
+%image cos horizontal
+M = N = 2048;
+T = 5;
+imgCosH = ones(M,1) * cos(2 * pi * (1:N) / T);
+%imshow(imgCosH);
+showEchantillonne(imgCosH);
+
+
+%image cos décalé d'un angle
+d=50;
+teta=pi/4;
+dx = floor(d * cos(teta));
+dy = floor(d * sin(teta));
+im = zeros(M,N);
+xcentre = floor((M/2) + 1);
+ycentre = floor((N/2) + 1);
+im(xcentre, ycentre) = 255;
+im(xcentre+dx, ycentre+dy) = 255;
+im(xcentre-dx, ycentre-dy) = 255;
+
+imgCosTeta = ifft2(im);
+%imshow(abs(imgCosTeta),[]);
+
+
+imgCircle = getImgCircle(512,512, 100);
+%showEchantillonne(imgCircle);
+
+
+Z = imzoneplate(501);
+%imshow(echantillonne(Z, 8));
+
+%showEchantillonne(Z);

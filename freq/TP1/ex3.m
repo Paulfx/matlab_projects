@@ -1,32 +1,108 @@
 clc;
 clear;
+close all;
 
-%Faire 3 points:
-n=100;
-m=100;
-d=10;
-teta=pi/4;
+%   Fonctions Internes    %
 
-dx = floor(d * cos(teta));
-dy = floor(d * sin(teta));
-im = zeros(n,m);
-xcentre = floor((n/2) + 1);
-ycentre = floor((m/2) + 1);
-im(xcentre, ycentre) = 255;
-im(xcentre+dx, ycentre+dy) = 255;
-im(xcentre-dx, ycentre-dy) = 255;
-%imshow(im);
+function resImage = imToGrayScale(inputImage)
+  resImage = 0.2126 * inputImage(:,:,1) + 0.7152 * inputImage(:,:,2) + 0.0722 * inputImage(:,:,3);
+endfunction
 
-imInv = ifft2(im);
-val = 2;
-%imshow( log(1 + val * abs(imInv))  );
-%imshow(abs(imInv),[]);
+%Fonction renvoyant la fft inverse d'une image de taille (n,m) au fond noir
+%avec le pixel blanc central et deux diracs (deux pixels blancs) à une
+%distance d du centre, incliné d'un angle teta (en radian)
+function img = inv2dirac(n,m,d,teta)
+    img = zeros(n,m);
+    dx = floor(d * cos(teta));
+    dy = floor(d * sin(teta));
+    xCentre = floor((n / 2) + 1);
+    yCentre = floor((m / 2) + 1);
+    img(xCentre, yCentre) = 255;% point central
+    img(xCentre + dx ,yCentre + dy) = 255;
+    img(xCentre - dx ,yCentre - dy) = 255;%symetrique
+    img = ifft2(img);
+endfunction
+
+%NEED COMMENT
+function img = getImgCircle(n,m,radius)
+    [col, row] = meshgrid(1:n, 1:m);
+    centerX = n / 2 + 1;
+    centerY = m / 2 + 1;
+    circlePixels = (row - centerY).^2 + (col - centerX).^2 <= radius.^2;
+    img = circlePixels * 255; %%Affiche en blanc
+endfunction
+
+n = 512; % size image
+m = 512;
+d = 10;
+teta = pi / 4; %radian
+
+figure(1);
+
+fft_inv = inv2dirac(n,m,d,teta);
+subplot(2,2,1);
+imshow(abs(fft_inv),[]);
+title('d = 10');
+
+%Dans notre image de depart nous avons deux diracs equidistants d'une distance d, On obtient
+%donc bien apres l'application d'une fft inverse, un sinus d'une période égale à 1/d.
+
+d = 5;
+fft_inv = inv2dirac(n,m,d,teta);
+subplot(2,2,2);
+imshow(abs(fft_inv),[]);
+title('d = 5');
+
+%En diminuant la distance entre les diracs, on obtient un sinus avec une 
+%fréquence plus faible (f proportionnel d) 
+
+d = 30;
+fft_inv = inv2dirac(n,m,d,teta);
+subplot(2,2,3);
+imshow(abs(fft_inv),[]);
+title('d = 30');
+%mesh(fft_inv);
+
+%Meme remarque que précedement, avec une distance plus grande on a une
+%distance plus élevée.
+
+d = 10;
+teta = pi / 2;
+fft_inv = inv2dirac(n,m,d,teta);
+subplot(2,2,4);
+imshow(abs(fft_inv),[]);
+title('teta = pi / 2');
+%La variation de l'angle teta se retrouve dans la transformée inverse. Le
+%sinus horizontal car on a des barres verticales
+%TODO expliquer angle
+
+
+%Cercle
+figure(2);
+imgCercle = getImgCircle(n,m,5);
+subplot(2,2,1);
+imshow(imgCercle);
+im = fftshift(ifft2(imgCercle));
+title('Cercle rayon = 5');
+subplot(2,2,2);
+%mesh(im);
+imshow(abs(im), []);
+title("ifft cercle rayon 5")
+
+imgCercle = getImgCircle(n,m,25);
+subplot(2,2,3);
+imshow(imgCercle);
+title("Cercle rayon 25");
+
+im = fftshift(ifft2(imgCercle));
+subplot(2,2,4);
+imshow(abs(im), []);
+title("ifft cercle rayon 25");
 
 lena = imread('lena.pgm');
 lena = lena(:,:,1);
 
 [N M C] = size(lena);
-
 lenaFFT = fft2(lena);
 lenaShift = fftshift(lenaFFT);
 
@@ -45,7 +121,7 @@ lenaRandomMod = randomModule .* exp(i * phi);
 iRP = ifft2(lenaRandomPhase);
 iRM = ifft2(lenaRandomMod);
 
-figure(1);
+figure(3);
 
 subplot(2,2,1);
 imshow(abs(iRP), []);
@@ -87,7 +163,7 @@ modMontagne = abs(montagneFFT);
 phaseFraiseModMontagne = modMontagne .* exp(i * phiFraise);
 phaseMontagneModFraise = modFraise .* exp(i * phiMontagne);
 
-figure(2);
+figure(4);
 subplot(2,2,1);
 imshow(montagne);
 title("Original montagne")
