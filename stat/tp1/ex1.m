@@ -9,41 +9,24 @@ close all;
 %Return wp the patch of size 'size' centered around a pixel p of coordinate [rowP, colP]
 %And wfilled the pixel filled in this patch (0 if not filled OR outside the input image 'im'
 function [wp, wfilled] = getPatchAndFilledAroundP(patchSize, rowP, colP, im, pixelFilled)
-  c = floor(patchSize / 2) + 1; %number of col,row added
-  [M N Ch] = size(im);
-  expandedMatrix = zeros(M + c, N + c, 3);
-  
-  
-  %Index of the image in the expanded matrix
-  rowStart = colStart = floor(patchSize); %square patch
-  rowEnd = N + rowStart - 1;
-  colEnd = M + colStart - 1;
-  
-  %Put im at the center
-  expandedMatrix(rowStart:rowEnd, colStart:colEnd, :) = im;
-  wp = expandedMatrix(rowP:rowP+patchSize-1, colP:colP+patchSize-1, :);
-  
-  %wfilled:
-  expandedMatrix(rowStart:rowEnd, colStart:colEnd) = pixelFilled;
-  wfilled = expandedMatrix(rowP:rowP+patchSize-1, colP:colP+patchSize-1);
+  wp = getPatchAroundP(patchSize, rowP, colP, im);
+  wfilled = getPatchAroundP(patchSize, rowP, colP, pixelFilled);
   
 endfunction
 
-function wp = getPatchAroundP(patchSize, rowP, colP, im)
-  c = floor(patchSize / 2) + 1;
-  [M N] = size(im);
-  expandedMatrix = zeros(M + c, N + c);
-  
-  
-  %Index of the image in the expanded matrix
-  rowStart = colStart = floor(patchSize); %square patch
-  rowEnd = N + rowStart - 1;
-  colEnd = M + colStart - 1;
-  
-  %Put im at the center
-  expandedMatrix(rowStart:rowEnd, colStart:colEnd) = im;
-  wp = expandedMatrix(rowP:rowP+patchSize-1, colP:colP+patchSize-1);
-  
+function wp = getPatchAroundP(patchSize, rowP, colP, im)  
+  p2 = floor(patchSize / 2);
+  c = p2 + 1;
+  [M N Ch] = size(im);
+  wp = zeros(patchSize, patchSize, Ch);
+
+  startRowP = max(rowP - p2, 1);
+  endRowP   = min(rowP + p2, M);
+  startColP = max(colP - p2, 1);
+  endColP   = min(colP + p2, N);
+
+  wp(  c + startRowP - rowP : c + endRowP - rowP, c + startColP - colP : c + endColP - colP, Ch) = im(startRowP:endRowP, startColP:endColP, Ch);
+
 endfunction
 
 function [rowMax colMax] = getRowMaxColMax(im)
@@ -60,8 +43,6 @@ endfunction
 
 function dist = euclidianDistanceBetweenTwoPatches(w1,w2)
   [M N] = size(w1);
-  
-  
 endfunction
 
 function mse = meanSquareErrorBetweenTwoPatches(w1, w2)
@@ -82,7 +63,7 @@ endfunction
 %
 
 %The sample
-filename = "text0.png";
+filename = "text4.png";
 Ismp = imread(filename);
 [Nsmp Msmp Csmp] = size(Ismp);%Sample size
 
@@ -93,18 +74,18 @@ I = zeros(outputSize,outputSize,3);
 PixelFilled = zeros(outputSize,outputSize);
 
 %patch size
-patchSize = 15; 
-neighboringSize = 19; % (need to be odd to have a centered pixel?)
+patchSize = 64; 
+neighboringSize = 7;                                                                                                                                        ; % (need to be odd to have a centered pixel?)
 neighboringOnes = ones(neighboringSize, neighboringSize);
 
 %initialize I
 %Get a random patch of size L*L
-%patch = Ismp(randi(Nsmp-L+1)+(0:L-1),randi(Msmp-L+1)+(0:L-1));
+patch = Ismp(randi(Nsmp-patchSize+1)+(0:patchSize-1),randi(Msmp-patchSize+1)+(0:patchSize-1),:);
 
 %get a patch at the center of Ismp
-beginP=floor(Nsmp/2-patchSize/2+1);
-endP=floor(Msmp/2+patchSize/2);
-patch = Ismp(beginP:endP, beginP:endP, :);
+%beginP=floor(Nsmp/2-patchSize/2+1);
+%endP=floor(Msmp/2+patchSize/2);
+%patch = Ismp(beginP:endP, beginP:endP, :);
 
 %Put the patch at the center of I
 beginP=floor(outputSize/2-patchSize/2+1);
@@ -119,8 +100,16 @@ PixelFilled(beginP:endP, beginP:endP) = 1;
 
 % While all pixel are not filled
 
-while size(find(1-PixelFilled))(1) != 0
- 
+distanceToWP = zeros(Nsmp, Msmp);
+
+nbRest = size(find(1-PixelFilled))(1);
+
+%while size(find(1-PixelFilled))(1) ~= 0
+while nbRest ~= 0
+
+ nbRest
+  
+  
   %
   % ------- First, pick a pixel not filled yet with maximum filled neighboring pixels
   %
@@ -142,29 +131,55 @@ while size(find(1-PixelFilled))(1) != 0
   %need to get the patch around p, and the pixel filled in this patch of size neighboringSize
   [wp wpFilled] = getPatchAndFilledAroundP(neighboringSize, rowP, colP, I, PixelFilled);
 
-  %Sum of all pixels of the patch p
-  %For each channel, todo make all at once
-  sumWp1 = sum(wp(:,:,1)(:));
-  sumWp2 = sum(wp(:,:,2)(:));
-  sumWp3 = sum(wp(:,:,3)(:));
-%No problem for filled/not filled because euclidian distance...
-  %Distance of all the patch of sample, 0 if not filled yet..
-  
-  %TODO check canaux, faire distance pour chaque couleur ? 
-  %Surement mieux
-  sumFilledOfSMP1 = conv2(Ismp(:,:,1), wpFilled, 'same');
-  sumFilledOfSMP2 = conv2(Ismp(:,:,2), wpFilled, 'same');
-  sumFilledOfSMP3 = conv2(Ismp(:,:,3), wpFilled, 'same');
 
-  %the distances are stored in a matrix which each value is the distance between
-  %The patch wp and the patch around the value
-  distanceToWP1 = abs(sumFilledOfSMP1 - sumWp1);
-  distanceToWP2 = abs(sumFilledOfSMP2 - sumWp2);
-  distanceToWP3 = abs(sumFilledOfSMP3 - sumWp3);
- 
-  distanceToWP = distanceToWP1 + distanceToWP2 + distanceToWP3;
+  %On a le patch, on veut faire la différence entre chaque pixel de wp 
+  %et chaque pixels des patch de Ismp, sommée au carré
+  tic
+  for i = 1:Nsmp
+   
+    for j = 1:Msmp
+      
+      
+      w = getPatchAroundP(neighboringSize, i, j, Ismp);
+      
+      X = (wp - w) .* wpFilled;
+      ssd = sum(X(:).^2);
+      distanceToWP(i,j) = ssd; 
+    endfor
+   
+   endfor
+  toc
+
+  %ismp2 = 
+
+
+
+%   %Sum of all pixels of the patch p
+%   %For each channel, todo make all at once
+%   sumWp1 = sum(wp(:,:,1)(:));
+%   sumWp2 = sum(wp(:,:,2)(:));
+%   sumWp3 = sum(wp(:,:,3)(:));
+% %No problem for filled/not filled because euclidian distance...
+%   %Distance of all the patch of sample, 0 if not filled yet..
   
-  [rowMin colMin] =  getRowMinColMin(distanceToWP);
+%   %TODO check canaux, faire distance pour chaque couleur ? 
+%   %Surement mieux
+%   sumFilledOfSMP1 = conv2(Ismp(:,:,1), wpFilled, 'same');
+%   sumFilledOfSMP2 = conv2(Ismp(:,:,2), wpFilled, 'same');
+%   sumFilledOfSMP3 = conv2(Ismp(:,:,3), wpFilled, 'same');
+
+%   %the distances are stored in a matrix which each value is the distance between
+%   %The patch wp and the patch around the value
+%   distanceToWP1 = abs(sumFilledOfSMP1 - sumWp1);
+%   distanceToWP2 = abs(sumFilledOfSMP2 - sumWp2);
+%   distanceToWP3 = abs(sumFilledOfSMP3 - sumWp3);
+ 
+%   distanceToWP = distanceToWP1 + distanceToWP2 + distanceToWP3;
+
+  %sumDistancePatch = conv2(Ismp, wpFilled, 'same');
+  
+  
+  [rowMin colMin] = getRowMinColMin(distanceToWP);
   %the distance with the best patch:
   dWpWbest = distanceToWP(rowMin,colMin);
 
@@ -175,8 +190,8 @@ while size(find(1-PixelFilled))(1) != 0
   % ------ Compute omega all the patches of Ismp that have a distance with wp <= 
   % ------ (1+e) * dWpWbest
   %
-  eps = 3;
-
+  eps = 0.1;
+  
   omegaPrime = distanceToWP <= (1+eps) * dWpWbest;
 
   %Pick one randomly, and affect I(rowP,colP) to this value
@@ -194,11 +209,15 @@ while size(find(1-PixelFilled))(1) != 0
 
 
 
+  %imshow(uint8(I));
 
+  nbRest = size(find(1-PixelFilled))(1);
+
+  %fprintf("Reste %i pixels\n", nbRest);
 
 endwhile
 
-imshow(uint8(I));
+%imshow(uint8(I));
 
 
 

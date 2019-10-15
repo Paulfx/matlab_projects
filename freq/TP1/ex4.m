@@ -99,19 +99,18 @@ endfunction
 function showEchantillonne(im)
 
 	figure();
-	subplot(2,2,1);
 	imshow(im, []);
 	title("Image originale");
 
-	subplot(2,2,2);
+	figure();
 	imshow(echantillonne(im,2), []);
 	title("Image echantillonée 1 pixel sur 2");
 
-	subplot(2,2,3);
+	figure();
 	imshow(echantillonne(im,4), []);
 	title("Image echantillonée 1 pixel sur 4");
 
-	subplot(2,2,4);
+	figure();
 	imshow(echantillonne(im,8), []);
 	title("Image echantillonée 1 pixel sur 8");
 
@@ -122,7 +121,7 @@ M = N = 2048;
 T = 5;
 imgCosH = ones(M,1) * cos(2 * pi * (1:N) / T);
 %imshow(imgCosH);
-showEchantillonne(imgCosH);
+%showEchantillonne(imgCosH);
 
 
 %image cos décalé d'un angle
@@ -148,4 +147,4 @@ imgCircle = getImgCircle(512,512, 100);
 Z = imzoneplate(501);
 %imshow(echantillonne(Z, 8));
 
-%showEchantillonne(Z);
+showEchantillonne(Z);

@@ -2,16 +2,18 @@ clc;
 clear;
 close all;
 
-%   Fonctions Internes    %
-
+%
+% -------  Fonctions Internes    %
+%
+%fonction définie dans l'exercice 1
 function resImage = imToGrayScale(inputImage)
   resImage = 0.2126 * inputImage(:,:,1) + 0.7152 * inputImage(:,:,2) + 0.0722 * inputImage(:,:,3);
 endfunction
 
-%Fonction renvoyant la fft inverse d'une image de taille (n,m) au fond noir
+%Fonction renvoyant une image de taille (n,m) au fond noir
 %avec le pixel blanc central et deux diracs (deux pixels blancs) à une
 %distance d du centre, incliné d'un angle teta (en radian)
-function img = inv2dirac(n,m,d,teta)
+function img = deuxDirac(n,m,d,teta)
     img = zeros(n,m);
     dx = floor(d * cos(teta));
     dy = floor(d * sin(teta));
@@ -20,10 +22,11 @@ function img = inv2dirac(n,m,d,teta)
     img(xCentre, yCentre) = 255;% point central
     img(xCentre + dx ,yCentre + dy) = 255;
     img(xCentre - dx ,yCentre - dy) = 255;%symetrique
-    img = ifft2(img);
+    %img = ifft2(img);
 endfunction
 
-%NEED COMMENT
+%Retourne une image composée d'un cercle blanc de rayon radius au
+%centre de l'image
 function img = getImgCircle(n,m,radius)
     [col, row] = meshgrid(1:n, 1:m);
     centerX = n / 2 + 1;
@@ -32,60 +35,86 @@ function img = getImgCircle(n,m,radius)
     img = circlePixels * 255; %%Affiche en blanc
 endfunction
 
-n = 512; % size image
-m = 512;
-d = 10;
+%
+% ------- Début du code
+%
+
+% ------- 2 diracs équidistants
+
+n = 128; % size image
+m = 128;
+d = 10; %d est la distance entre les diracs
 teta = pi / 4; %radian
 
 figure(1);
 
-fft_inv = inv2dirac(n,m,d,teta);
+deuxDir = deuxDirac(n,m,d,teta);
 subplot(2,2,1);
-imshow(abs(fft_inv),[]);
-title('d = 10');
+imshow(deuxDir);
+title("deux diracs d=10 teta=pi/4");
+
+subplot(2,2,2);
+imshow(abs(ifft2(deuxDir)),[]);
+title('fft inv associée');
 
 %Dans notre image de depart nous avons deux diracs equidistants d'une distance d, On obtient
 %donc bien apres l'application d'une fft inverse, un sinus d'une période égale à 1/d.
 
 d = 5;
-fft_inv = inv2dirac(n,m,d,teta);
-subplot(2,2,2);
-imshow(abs(fft_inv),[]);
-title('d = 5');
+deuxDir = deuxDirac(n,m,d,teta);
+subplot(2,2,3);
+imshow(deuxDir);
+title("deux diracs d=5 teta=pi/4");
+
+subplot(2,2,4);
+imshow(abs(ifft2(deuxDir)),[]);
+title('fft inv associée');
 
 %En diminuant la distance entre les diracs, on obtient un sinus avec une 
-%fréquence plus faible (f proportionnel d) 
+%fréquence plus faible (f étant proportionnel à d)
 
-d = 30;
-fft_inv = inv2dirac(n,m,d,teta);
-subplot(2,2,3);
-imshow(abs(fft_inv),[]);
-title('d = 30');
+figure(2);
+d = 15;
+teta = pi/4;
+deuxDir = deuxDirac(n,m,d,teta);
+subplot(2,2,1);
+imshow(deuxDir);
+title("Deux dirac d=15, teta=pi/4");
+
+subplot(2,2,2);
+imshow(abs(ifft2(deuxDir)),[]);
+title('fft inv associée');
 %mesh(fft_inv);
 
 %Meme remarque que précedement, avec une distance plus grande on a une
-%distance plus élevée.
+%fréquence plus élevée.
 
-d = 10;
 teta = pi / 2;
-fft_inv = inv2dirac(n,m,d,teta);
+deuxDir = deuxDirac(n,m,d,teta);
+subplot(2,2,3);
+imshow(deuxDir);
+title("Deux dirac d=15, teta=pi/2");
+
 subplot(2,2,4);
-imshow(abs(fft_inv),[]);
-title('teta = pi / 2');
+imshow(abs(ifft2(deuxDir)),[]);
+title('fft inv associée');
+
 %La variation de l'angle teta se retrouve dans la transformée inverse. Le
-%sinus horizontal car on a des barres verticales
-%TODO expliquer angle
+%sinus est horizontal car on a des barres verticales. En effet, on a un angle de
+% 90° + teta dans la transformée de fourier inverse
 
+% ------- Cercle
 
-%Cercle
-figure(2);
+figure(3);
 imgCercle = getImgCircle(n,m,5);
 subplot(2,2,1);
 imshow(imgCercle);
-im = fftshift(ifft2(imgCercle));
 title('Cercle rayon = 5');
 subplot(2,2,2);
 %mesh(im);
+
+% La fft inverse d'un cercle produit un sinus cardinal 
+im = fftshift(ifft2(imgCercle));
 imshow(abs(im), []);
 title("ifft cercle rayon 5")
 
@@ -131,30 +160,32 @@ subplot(2,2,2);
 imshow(abs(iRM), []);
 title("Lena random module");
 
-constantPhi = ones(N,M);
+constantPhi = ones(N,M) * pi/2;
 constantModule = ones(N,M) .* 1000;
 lenaConstantPhase = m .* exp(i * constantPhi);
 
 lenaConstantModule = constantModule .* exp(i * phi);
 
+lcpInv = ifft2(lenaConstantPhase);
 subplot(2,2,3);
-imshow(abs(ifft2(lenaConstantPhase)), []);
+imshow(abs(lcpInv), []);
 title("Lena constant phase");
 
+lcmInv = ifft2(lenaConstantModule);
 subplot(2,2,4);
-imshow(abs(ifft2(lenaConstantModule)), []);
+imshow(abs(lcmInv), []);
 title("Lena constant module");
 
 %Intervertir phase et module de deux images
 fraise = imread('fraise-foveon.jpg');
-fraise = fraise(:,:,1);
+fraise = imToGrayScale(fraise);
 fraiseFFT = fft2(fraise);
 
 phiFraise = angle(fraiseFFT);
 modFraise = abs(fraiseFFT);
 
 montagne = imread('montagne-foveon.jpg');
-montagne=montagne(:,:,1);
+montagne=imToGrayScale(montagne);
 montagneFFT = fft2(montagne);
 
 phiMontagne = angle(montagneFFT);
