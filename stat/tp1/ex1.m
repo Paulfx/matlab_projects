@@ -6,6 +6,40 @@ close all;
 % ------- FUNCTIONS
 %
 
+function allDistance = computeAllDistances(wp, wpFilled, Ismp, Ismp2)
+  
+  sum_wp = sum((wp.^2)(:));
+  
+  x2_squared = convn(Ismp2, rot90(rot90(wpFilled)), 'same');
+  
+  %Sum the 3 channels
+  x2_squared = sum(x2_squared,3);
+  
+  %conv 3 channels with 3 channels in one time?
+  x1x2_channel1 = conv2(Ismp(:,:,1), rot90(rot90(wp))(:,:,1), 'same');
+  x1x2_channel2 = conv2(Ismp(:,:,2), rot90(rot90(wp))(:,:,2), 'same');
+  x1x2_channel3 = conv2(Ismp(:,:,3), rot90(rot90(wp))(:,:,3), 'same');
+  
+  x1x2 = x1x2_channel1 + x1x2_channel2 + x1x2_channel3;
+  
+  
+  allDistance = x2_squared - 2*x1x2 + sum_wp; 
+  
+endfunction
+
+%Access with allPatchesOfSMP(:,:,:,d) and (i,j) = ind2sub(size(im), d)
+function allPatchesOfSMP = getAllPatchesOfSMP(patchSize, im)
+ [M,N,Ch] = size(im);
+ allPatchesOfSMP = zeros(patchSize,patchSize,Ch,M*N);
+ d=1;
+ for i=1:M
+  for j=1:N
+   allPatchesOfSMP(:,:,:,d) = getPatchAroundP(patchSize,j,i,im);
+   d = d+1;   
+  endfor
+ endfor
+endfunction
+
 %Return wp the patch of size 'size' centered around a pixel p of coordinate [rowP, colP]
 %And wfilled the pixel filled in this patch (0 if not filled OR outside the input image 'im'
 function [wp, wfilled] = getPatchAndFilledAroundP(patchSize, rowP, colP, im, pixelFilled)
@@ -25,7 +59,7 @@ function wp = getPatchAroundP(patchSize, rowP, colP, im)
   startColP = max(colP - p2, 1);
   endColP   = min(colP + p2, N);
 
-  wp(  c + startRowP - rowP : c + endRowP - rowP, c + startColP - colP : c + endColP - colP, Ch) = im(startRowP:endRowP, startColP:endColP, Ch);
+  wp(  c + startRowP - rowP : c + endRowP - rowP, c + startColP - colP : c + endColP - colP, :) = im(startRowP:endRowP, startColP:endColP, :);
 
 endfunction
 
@@ -74,8 +108,8 @@ I = zeros(outputSize,outputSize,3);
 PixelFilled = zeros(outputSize,outputSize);
 
 %patch size
-patchSize = 64; 
-neighboringSize = 7;                                                                                                                                        ; % (need to be odd to have a centered pixel?)
+patchSize = 32; 
+neighboringSize = 15;                                                                                                                                        ; % (need to be odd to have a centered pixel?)
 neighboringOnes = ones(neighboringSize, neighboringSize);
 
 %initialize I
@@ -100,16 +134,14 @@ PixelFilled(beginP:endP, beginP:endP) = 1;
 
 % While all pixel are not filled
 
+Ismp2 = double(Ismp) .* double(Ismp);
 distanceToWP = zeros(Nsmp, Msmp);
 
 nbRest = size(find(1-PixelFilled))(1);
 
 %while size(find(1-PixelFilled))(1) ~= 0
 while nbRest ~= 0
-
- nbRest
-  
-  
+    
   %
   % ------- First, pick a pixel not filled yet with maximum filled neighboring pixels
   %
@@ -134,24 +166,25 @@ while nbRest ~= 0
 
   %On a le patch, on veut faire la différence entre chaque pixel de wp 
   %et chaque pixels des patch de Ismp, sommée au carré
-  tic
-  for i = 1:Nsmp
-   
-    for j = 1:Msmp
-      
-      
-      w = getPatchAroundP(neighboringSize, i, j, Ismp);
-      
-      X = (wp - w) .* wpFilled;
-      ssd = sum(X(:).^2);
-      distanceToWP(i,j) = ssd; 
-    endfor
-   
-   endfor
-  toc
-
-  %ismp2 = 
-
+% tic
+% for i = 1:Nsmp
+%  
+%   for j = 1:Msmp
+%     
+%     
+%     w = getPatchAroundP(neighboringSize, i, j, Ismp);
+%     
+%     X = (wp - w) .* wpFilled;
+%     ssd = sum(X(:).^2);
+%     distanceToWP(i,j) = ssd; 
+%   endfor
+%  
+%  endfor
+% toc
+ 
+  %tic
+  distanceToWP = computeAllDistances(wp, wpFilled, Ismp, Ismp2);
+  %toc
 
 
 %   %Sum of all pixels of the patch p
@@ -190,7 +223,7 @@ while nbRest ~= 0
   % ------ Compute omega all the patches of Ismp that have a distance with wp <= 
   % ------ (1+e) * dWpWbest
   %
-  eps = 0.1;
+  eps = 0.01;
   
   omegaPrime = distanceToWP <= (1+eps) * dWpWbest;
 
@@ -207,9 +240,6 @@ while nbRest ~= 0
   %Update pixelFilled
   PixelFilled(rowP,colP) = 1;
 
-
-
-  %imshow(uint8(I));
 
   nbRest = size(find(1-PixelFilled))(1);
 
