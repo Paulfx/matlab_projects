@@ -11,7 +11,7 @@ close all;
 %
 
 %The sample
-filename = "text0.png";
+filename = "text2.png";
 Ismp = imread(filename);
 %Sample size
 [Nsmp,Msmp,Csmp] = size(Ismp);
@@ -26,18 +26,20 @@ PixelFilled = zeros(outputSize,outputSize);
 eps = 0.01;
 
 %patch size
-patchSize = 16; 
+patchSize = 32; 
 neighboringSize = 15;                                                                                                                                        ; % (need to be odd to have a centered pixel?)
 neighboringOnes = ones(neighboringSize, neighboringSize);
 
 %initialize I
 %Get a random patch of size patchSize
-patch = Ismp(randi(Nsmp-patchSize+1)+(0:patchSize-1),randi(Msmp-patchSize+1)+(0:patchSize-1),:);
+% patch = Ismp(randi(Nsmp-patchSize+1)+(0:patchSize-1),randi(Msmp-patchSize+1)+(0:patchSize-1),:);
 
 %get a patch at the center of Ismp
-%beginP=floor(Nsmp/2-patchSize/2+1);
-%endP=floor(Msmp/2+patchSize/2);
-%patch = Ismp(beginP:endP, beginP:endP, :);
+beginRow=floor(Nsmp/2-patchSize/2+1);
+endRow=floor(Nsmp/2+patchSize/2);
+beginCol=floor(Msmp/2-patchSize/2+1);
+endCol=floor(Msmp/2+patchSize/2);
+patch = Ismp(beginRow:endRow, beginCol:endCol, :);
 
 %Put the patch at the center of I
 beginP=floor(outputSize/2-patchSize/2+1);
@@ -52,10 +54,12 @@ PixelFilled(beginP:endP, beginP:endP) = 1;
 
 Ismp2 = double(Ismp) .* double(Ismp);
 distanceToWP = zeros(Nsmp, Msmp);
-[nbRest,~] = size(find(1-PixelFilled));
+nbRest = size(find(1-PixelFilled));
+nbRest = nbRest(1);
 
 % While all pixel are not filled
 while nbRest ~= 0
+    %tic
     
 %
 % ------- First, pick a pixel not filled yet with maximum filled neighboring pixels
@@ -79,29 +83,29 @@ while nbRest ~= 0
   %need to get the patch wp around p
   %and the pixel filled wpFilled in this patch of size neighboringSize
   [wp,wpFilled] = getPatchAndFilledAroundP(neighboringSize, rowP, colP, I, PixelFilled);
-    
+  
   %compute the distances between wp and all the patch of size
   %neighboringSize of Ismp
   %This takes a long time (around 50% of the total time) 
   %but I found a way to vectorize the ssd
   
-  %tic
-  %The parfor speeds up a little bit the for loop
-  % parfor i = 1:Nsmp
-  %   for j = 1:Msmp
-  %     w = getPatchAroundP(neighboringSize, i, j, Ismp);
-  %     %Multpiply with wpFilled to not condisider pixel not filled yet
-  %     X = (w - wp) .* wpFilled;
-  %     distanceToWP(i,j) = sum(sum(sum(X.^2)));
-  %   end
-  % end
-  % %toc
+%   tic
+%   %The parfor speeds up a little bit the for loop
+%   parfor i = 1:Nsmp
+%     for j = 1:Msmp
+%       w = getPatchAroundP(neighboringSize, i, j, Ismp);
+%       %Multpiply with wpFilled to not condisider pixel not filled yet
+%       X = (w - wp) .* wpFilled;
+%       distanceToWP(i,j) = sum(sum(sum(X.^2)));
+%     end
+%   end
+%   toc
 
-  %Vectorized version, speeds up the nested for loops by 100 times
+  %Vectorized version, speeds up the nested for loops
   %tic
   distanceToWP = computeAllDistances(wp,wpFilled,Ismp,Ismp2);
   %toc
-
+  
 %
 % ------ Find wbest
 %
@@ -136,14 +140,17 @@ while nbRest ~= 0
   %Update pixelFilled
   PixelFilled(rowP,colP) = 1;
 
-  imshow(uint8(I));
+  %imshow(uint8(I));
 
   %nbRest is the number of pixels not filled yet
-  [nbRest,~] = size(find(1-PixelFilled));
+  nbRest = nbRest - 1;
 
   %fprintf("Reste %i pixels\n", nbRest);
+  %toc
 end
+%toc
 
+%Display the result :
 imshow(uint8(I));
 
 
@@ -154,15 +161,11 @@ imshow(uint8(I));
 %Return wp the patch of size 'size' centered around a pixel p of coordinate [rowP, colP]
 %And wfilled the pixel filled in this patch (0 if not filled OR outside the input image 'im'
 function [wp, wfilled] = getPatchAndFilledAroundP(patchSize, rowP, colP, im, pixelFilled)
-  wp = getPatchAroundP(patchSize, rowP, colP, im);
-  wfilled = getPatchAroundP(patchSize, rowP, colP, pixelFilled);
-end
-
-function wp = getPatchAroundP(patchSize, rowP, colP, im)  
   p2 = floor(patchSize / 2);
   c = p2 + 1;
   [M,N,Ch] = size(im);
   wp = zeros(patchSize, patchSize, Ch);
+  wfilled = zeros(patchSize, patchSize);
 
   startRowP = max(rowP - p2, 1);
   endRowP   = min(rowP + p2, M);
@@ -170,7 +173,24 @@ function wp = getPatchAroundP(patchSize, rowP, colP, im)
   endColP   = min(colP + p2, N);
 
   wp(  c + startRowP - rowP : c + endRowP - rowP, c + startColP - colP : c + endColP - colP, :) = im(startRowP:endRowP, startColP:endColP, :);
+  wfilled( c + startRowP - rowP : c + endRowP - rowP, c + startColP - colP : c + endColP - colP, :) = pixelFilled(startRowP:endRowP, startColP:endColP, :);
+  
 end
+
+%%Function used in the nested for loop
+% function wp = getPatchAroundP(patchSize, rowP, colP, im)  
+%   p2 = floor(patchSize / 2);
+%   c = p2 + 1;
+%   [M,N,Ch] = size(im);
+%   wp = zeros(patchSize, patchSize, Ch);
+
+%   startRowP = max(rowP - p2, 1);
+%   endRowP   = min(rowP + p2, M);
+%   startColP = max(colP - p2, 1);
+%   endColP   = min(colP + p2, N);
+
+%   wp(  c + startRowP - rowP : c + endRowP - rowP, c + startColP - colP : c + endColP - colP, :) = im(startRowP:endRowP, startColP:endColP, :);
+% end
 
 function [rowMax,colMax] = getRowMaxColMax(im)
  [~,In] = max(im);
@@ -189,7 +209,8 @@ end
 %use of sum (x1 - x2)² = sum(x1²) + sum(x2²) - 2*sum(x1*x2)
 function allDistance = computeAllDistances(wp, wpFilled, Ismp, Ismp2)
   
-  sum_wp = sum((wp.^2)(:));
+  wp2 = wp.^2;
+  sum_wp = sum(wp2(:));
   
   x2_squared = convn(Ismp2, rot90(rot90(wpFilled)), 'same');
   
@@ -198,9 +219,10 @@ function allDistance = computeAllDistances(wp, wpFilled, Ismp, Ismp2)
   
   
   %conv 3 channels with 3 channels in one time?
-  x1x2_channel1 = conv2(Ismp(:,:,1), rot90(rot90(wp))(:,:,1), 'same');
-  x1x2_channel2 = conv2(Ismp(:,:,2), rot90(rot90(wp))(:,:,2), 'same');
-  x1x2_channel3 = conv2(Ismp(:,:,3), rot90(rot90(wp))(:,:,3), 'same');
+  rot180_wp = rot90(rot90(wp));
+  x1x2_channel1 = conv2(Ismp(:,:,1), rot180_wp(:,:,1), 'same');
+  x1x2_channel2 = conv2(Ismp(:,:,2), rot180_wp(:,:,2), 'same');
+  x1x2_channel3 = conv2(Ismp(:,:,3), rot180_wp(:,:,3), 'same');
   
   x1x2 = x1x2_channel1 + x1x2_channel2 + x1x2_channel3;
   
